@@ -24,13 +24,14 @@ if __name__ == '__main__':
     parser.add_argument('-k', '--top_k', default=5, type=int)
     parser.add_argument('-cat', '--category_names', default="./cat_to_name.json", type=str)
     parser.add_argument('-cuda', '--gpu', default="True", type=bool)
-
+    parser.add_argument('-p', '--preview', help='preview the flower image with its predictions', default="False", type=bool)
+    
     # Parse and print the results
     args = parser.parse_args()
-
+    
     # load a checkpoint
     model = load_checkpoint(args.checkpoint)
-
+    
     # predict image class, get the probabilities and classes
     probs, classes = predict(args.image_path, model, args.category_names, args.gpu, args.top_k)
     print(probs, classes)

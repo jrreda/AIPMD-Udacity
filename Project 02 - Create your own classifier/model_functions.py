@@ -8,6 +8,11 @@ import warnings
 warnings.filterwarnings('ignore')
 from utility_functions import process_image, imshow, mapping
 
+# define some constants
+e = 1               # epoches
+d = [0.5, 0.3]      # dropout
+h = [4096, 1000]    # hidden units
+a = "vgg13"         # network architecture
 
 # TODO: Define your transforms for the training, validation, and testing sets
 def load_data(data_dir):
@@ -22,11 +27,7 @@ def load_data(data_dir):
                                                 transforms.ToTensor(),
                                                 transforms.Normalize([0.485, 0.456, 0.406],     # mean
                                                                      [0.229, 0.224, 0.225])]),  # std
-        'valid_transforms': transforms.Compose([transforms.Resize(255),
-                                               transforms.CenterCrop(224),
-                                               transforms.ToTensor(),
-                                               transforms.Normalize([0.485, 0.456, 0.406],     # mean
-                                                                    [0.229, 0.224, 0.225])]),  # std
+        # for valid & test:
         'test_transforms': transforms.Compose([transforms.Resize(255),
                                                transforms.CenterCrop(224),
                                                transforms.ToTensor(),
@@ -37,7 +38,7 @@ def load_data(data_dir):
     # TODO: Load the datasets with ImageFolder
     image_datasets = {
         'train_data': datasets.ImageFolder(train_dir, transform=data_transforms['train_transforms']),
-        'valid_data': datasets.ImageFolder(valid_dir, transform=data_transforms['valid_transforms']),
+        'valid_data': datasets.ImageFolder(valid_dir, transform=data_transforms['test_transforms']),
         'test_data': datasets.ImageFolder(test_dir, transform=data_transforms['test_transforms'])
 
     }
@@ -51,17 +52,26 @@ def load_data(data_dir):
 
     return data_transforms, image_datasets, dataloaders
 
-def structure_network(arch="vgg13", hidden_units=[4096, 1000], dropouts=[0.5, 0.3]):
+def structure_network(arch=a, hidden_units=h, dropouts=d):
     # TODO: Build and train your network
-    model = eval(f"models.{arch}(pretrained=True)") # models.vgg13(pretrained=True)
+    model = eval(f"models.{arch}(pretrained=True)")     # models.vgg13(pretrained=True)
 
-    # Freeze parameters so we don't backprop through them
+    # Freeze parameters so we don't backprop through them, Only train the classifier parameters
     for param in model.parameters():
         param.requires_grad = False
+    
+    # determine the in_features depending on the choosen arch
+    # [VGG, DENSENET, ALEXNET]
+    if 'vgg' in arch:
+        in_features = model.classifier[0].in_features   # 25088
+    elif 'dense' in arch:
+        in_features = model.classifier.in_features      # 1024
+    elif 'alex' in arch:
+        in_features = model.classifier[1].in_features   # 9216
 
     # Assign the classifier to the Pre-trained model
-    classifier = nn.Sequential(OrderedDict([
-        ('fc1', nn.Linear(25088, hidden_units[0])),
+    model.classifier = nn.Sequential(OrderedDict([
+        ('fc1', nn.Linear(in_features, hidden_units[0])),
         ('relu_1', nn.ReLU()),
         ('droput_1', nn.Dropout(dropouts[0])),
         ('fc2', nn.Linear(hidden_units[0], hidden_units[1])),
@@ -70,11 +80,6 @@ def structure_network(arch="vgg13", hidden_units=[4096, 1000], dropouts=[0.5, 0.
         ('fc3', nn.Linear(hidden_units[1], 102)),
         ('output', nn.LogSoftmax(dim=1))
         ]))
-    
-    try:
-        model.classifier = classifier
-    except:
-        model.clf = classifier
     
     return model
 
@@ -99,14 +104,14 @@ def evaluate_network(model, device, dataloaders, criterion):
 
     return loss, accuracy
 
-def save_checkpoint(save_dir, model, optimizer, image_datasets, arch="vgg13", hidden_units=[4096, 1000], dropouts=[0.5, 0.3]):
+def save_checkpoint(save_dir, model, optimizer, image_datasets, arch=a, hidden_units=h, dropouts=d, epochs=e):
     checkpoint = {
         'hidden_units': hidden_units,
-        'input_layer': 25088,
+        'input_layer': model.classifier.fc1.in_features,
         'output_layer': 102,
         'dropouts': dropouts,
         'structure': f'models.{arch}(pretrained=True)',
-        'epochs': 5,
+        'epochs': epochs,
         'model_state_dict': model.state_dict(),
         'optimizer_state_dict': optimizer.state_dict(),
         'class_to_idx': image_datasets['train_data'].class_to_idx,
@@ -129,7 +134,7 @@ def load_checkpoint(filepath):
 
     return model
 
-def train_network(model, dataloaders, arch='vgg13', gpu=True, lr=0.01, epochs=1):
+def train_network(model, dataloaders, arch=a, gpu=True, lr=0.01, epochs=e):
     # Use GPU if it's available
     if gpu:
         if torch.cuda.is_available():
