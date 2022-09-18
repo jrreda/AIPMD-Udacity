@@ -8,4 +8,4 @@ AI Programming with Python Nanodegree [part of ***AWS AI & ML Scholarship***]
 5. Project 02 - [Create your own classifier](https://github.com/jrreda/AIPND-Udacity/tree/main/Project%2002%20-%20Create%20your%20own%20classifier)
 
 
-<img src = "https://github.com/jrreda/AIPND-Udacity/blob/main/certificate.svg" alt="My Certificate"/>
+<img src = "https://github.com/jrreda/AIPND-Udacity/blob/main/certificate.png" alt="My Certificate"/>
